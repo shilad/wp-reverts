@@ -23,3 +23,4 @@ Article clustering
 - Requires macademia joined data files (located in s3://macademia/nbrvz/joined, created by tfidf package in wikipedia map reduce)
 - Download data files (see command at bottom of http://code.google.com/p/macademia/wiki/WikipediaMinner_Hadoop)
 - Translate data files into svmlight format:
+- seq 0 400 | xargs printf "%05d\\n" | parallel -P 10 --progress --eta zcat ~/usr/macademia/grails2/dat/sims/part-r-{}.gz '|' python2.6 ./data_prep/make_kmeans_input.py '|' gzip '>'articles/translated/{}.txt.gz
