@@ -62,9 +62,6 @@ public class Clusterer {
         int i = 0;
         double sum = 0.0;
         for (Document d : reader) {
-            if (i++ % 1000 == 0) {
-                System.err.println("reading document " + i);
-            }
             d.getFeatures().normalize();
             ClusterScore cs = findClosest(d, false);
 

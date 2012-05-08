@@ -15,10 +15,11 @@ public class DocumentReader implements Iterable<Document> {
         return new MyIterator(path);
     }
 
-    public static class MyIterator implements Iterator<Document>{
+    public class MyIterator implements Iterator<Document>{
         private BufferedReader reader;
         private String lineBuff = null;
         private boolean eof = false;
+        private int lineNum = 0;
 
         public MyIterator(File path) {
             try {
@@ -51,6 +52,9 @@ public class DocumentReader implements Iterable<Document> {
             if (!fillBuff()) return null;
             Document d = new Document(lineBuff);
             lineBuff = null;
+            if (lineNum % 10000 == 0) {
+                System.err.println("reading line " + lineNum + " of " + path);
+            }
             return d;
         }
 
@@ -65,6 +69,7 @@ public class DocumentReader implements Iterable<Document> {
             if (!eof) {
                 try {
                     lineBuff = reader.readLine();
+                    lineNum++;
                 } catch (IOException e) {
                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                     eof = true;
