@@ -16,18 +16,17 @@ public class Cluster {
     TIntFloatHashMap sums = new TIntFloatHashMap();
     TIntArrayList docIds = new TIntArrayList();
     private int id;
-
-    public Cluster(int id) {
-        this.id = id;
-    }
+    private ClusterStats stats = null;
+    private ClusterStats nextStats;
 
     public Cluster(int id, Document d) {
         this.id = id;
-        this.addDocument(d);
+        this.nextStats = new ClusterStats(this.id, sums.keySet());
+        this.addDocument(d, 1.0);
         this.finalize();
     }
 
-    public void addDocument(Document d) {
+    public void addDocument(Document d, double sim) {
         d.setCluster(id);
         docIds.add(d.getId());
         for (int i = 0; i < d.getFeatures().getSize(); i++) {
@@ -35,6 +34,7 @@ public class Cluster {
             float featureValue = d.getFeatures().getValue(i);
             sums.adjustOrPutValue(featureId, featureValue, featureValue);
         }
+        nextStats.addDocument(d, sim);
     }
 
     public void finalize() {
@@ -46,25 +46,26 @@ public class Cluster {
             values[i] = sums.get(id) / (docIds.size() + NUM_FAKE_DOCUMENTS);
         }
         this.features = new FeatureList(ids, values);
+//        this.features.normalize();
         this.sums.clear();
         this.docIds.clear();
+        this.stats = nextStats;
+        this.nextStats = new ClusterStats(this.id, sums.keySet());
     }
 
-    public double getSimilarity(Document d, boolean useWorking) {
-        double dot = 0;
-        if (useWorking) {
-            double sum = 0.0;
-            for (int i = 0; i < d.getFeatures().getSize(); i++) {
-                int id = d.getFeatures().getId(i);
-                if (sums.containsKey(id)) {
-                    double val = d.getFeatures().getValue(i);
-                    sum += sums.get(id) / (docIds.size() + NUM_FAKE_DOCUMENTS);
-                }
-            }
-            dot = sum;
-        } else {
-            dot = features.dot(d.getFeatures());
-        }
-        return 1.0 * dot / (d.getFeatures().getSize());
+    public double getSimilarity(Document d) {
+        return features.dot(d.getFeatures());
+    }
+
+    public ClusterStats getStats() {
+        return stats;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 }

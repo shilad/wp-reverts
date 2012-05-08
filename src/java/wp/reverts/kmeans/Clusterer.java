@@ -38,28 +38,26 @@ public class Clusterer {
         }
 
         public Object call() {
-            double sum = 0.0;
             int n = numClusters / readers.size();
-            int i = 0;
-            List<Document> initial = new ArrayList<Document>();
-            TIntIntHashMap docIdsToIndexes = new TIntIntHashMap ();
+            if (id < numClusters % readers.size()) {
+                n++;    // leftovers
+            }
+            List<Cluster> newClusters = new ArrayList<Cluster>();
 
             Random rand = new Random();
 
             for (Document d : reader) {
-                docIdsToIndexes.put(d.getId(), i);
-                if (initial.size() < n) {
-                    initial.add(d);
-                } else if (rand.nextDouble() < 1.0 * n / (i+1)) {
-                    initial.set(rand.nextInt(initial.size()), d);
+                if (newClusters.size() < n) {
+                    newClusters.add(new Cluster(clusters.size(), d));
+                } else {
+                    newClusters.get(rand.nextInt(n)).addDocument(d, 1.0);
                 }
-                i++;
             }
 
             synchronized (clusters) {
-                System.err.println("reader " + id + " of " + readers.size() + " finished.");
-                for (Document d : initial) {
-                    clusters.add(new Cluster(clusters.size(), d));
+                for (Cluster c : newClusters) {
+                    c.setId(clusters.size());
+                    clusters.add(c);
                 }
             }
 
@@ -77,16 +75,19 @@ public class Clusterer {
         for (DocumentReader r : readers) {
             i++;
             completionPool.take();
-            double mean = (System.currentTimeMillis() - start) / 1000.0 / i;
-            System.err.println("mean completion time is " + mean + " seconds");
+            if (i % 100 == 0 || i == readers.size()) {
+                double mean = (System.currentTimeMillis() - start) / 1000.0 / i;
+                System.err.println("mean completion time for " + i + " of " + readers.size() + " is " + mean + " seconds");
+            }
         }
+        finalizeClusters();
     }
 
-    public ClusterScore findClosest(final Document d, final boolean working) {
+    public ClusterScore findClosest(final Document d) {
         ClusterScore cs = new ClusterScore();
         for (Cluster c : clusters) {
-            double s = c.getSimilarity(d, working);
-            if (s > cs.score) {
+            double s = c.getSimilarity(d);
+            if (s >= cs.score) {
                 cs.score = s;
                 cs.cluster = c;
             }
@@ -108,13 +109,12 @@ public class Clusterer {
             int i = 0;
 
             for (Document d : reader) {
-                d.getFeatures().normalize();
-                ClusterScore cs = findClosest(d, false);
+                ClusterScore cs = findClosest(d);
 
                 // check if we should create a new cluster with this
                 if (cs.score > 0.0) {
                     synchronized (cs.cluster) {
-                        cs.cluster.addDocument(d);
+                        cs.cluster.addDocument(d, cs.score);
                     }
                 }
                 sum += cs.score;
@@ -123,6 +123,18 @@ public class Clusterer {
 
             return new Double(sum);
         }
+    }
+
+    public void finalizeClusters() {
+        ClusterStats overall = new ClusterStats(0);
+        for (Cluster c : clusters) {
+            c.finalize();
+            c.getStats().debug();
+            overall.merge(c.getStats());
+        }
+        System.err.println("============OVERALL STATS================");
+        overall.debug();
+        System.err.println("");
     }
 
     public void iteration() throws InterruptedException, ExecutionException {
@@ -136,14 +148,12 @@ public class Clusterer {
         for (DocumentReader r : readers) {
             i++;
             sum += (Double)(completionPool.take().get());
-            double mean = (System.currentTimeMillis() - start) / 1000.0 / i;
-            System.err.println("mean completion time is " + mean + " seconds");
+            if (i % 100 == 0 || i == readers.size()) {
+                double mean = (System.currentTimeMillis() - start) / 1000.0 / i;
+                System.err.println("mean completion time for " + i + " of " + readers.size() + " is " + mean + " seconds");
+            }
         }
-        System.err.println("sum of sims is " + sum);
-
-        for (Cluster c : clusters) {
-            c.finalize();
-        }
+        finalizeClusters();
     }
 
     public void shutdown() {
@@ -167,6 +177,7 @@ public class Clusterer {
         Clusterer c = new Clusterer(paths, Integer.valueOf(args[0]), Integer.valueOf(args[1]));
         c.initialPass();
         for (int i = 0; i < 10; i++) {
+            System.err.println("starting iteration " + i);
             c.iteration();
         }
         c.shutdown();
