@@ -56,6 +56,7 @@ public class Clusterer {
 
             synchronized (clusters) {
                 for (Cluster c : newClusters) {
+                    c.finalize();
                     c.setId(clusters.size());
                     clusters.add(c);
                 }
@@ -80,7 +81,7 @@ public class Clusterer {
                 System.err.println("mean completion time for " + i + " of " + readers.size() + " is " + mean + " seconds");
             }
         }
-        finalizeClusters();
+//        finalizeClusters();
     }
 
     public ClusterScore findClosest(final Document d) {
