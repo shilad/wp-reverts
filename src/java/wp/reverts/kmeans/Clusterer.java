@@ -72,8 +72,13 @@ public class Clusterer {
         for (DocumentReader r : readers) {
             completionPool.submit(new InitialRunnable(i++, r));
         }
+        long start = System.currentTimeMillis();
+        i = 0;
         for (DocumentReader r : readers) {
+            i++;
             completionPool.take();
+            double mean = 1000.0 * (System.currentTimeMillis() - start) / i;
+            System.err.println("mean completion time is " + mean + " seconds");
         }
     }
 
