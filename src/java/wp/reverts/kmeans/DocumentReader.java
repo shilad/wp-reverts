@@ -2,6 +2,7 @@ package wp.reverts.kmeans;
 
 import java.io.*;
 import java.util.Iterator;
+import java.util.zip.GZIPInputStream;
 
 public class DocumentReader implements Iterable<Document> {
     File path;
@@ -21,8 +22,21 @@ public class DocumentReader implements Iterable<Document> {
 
         public MyIterator(File path) {
             try {
-                this.reader = new BufferedReader(new FileReader(path));
+                if (path.toString().toLowerCase().endsWith(".gz")) {
+                    InputStream fileStream = new FileInputStream(path);
+                    InputStream gzipStream = new GZIPInputStream(fileStream);
+                    Reader decoder = new InputStreamReader(gzipStream, "UTF-8");
+                    reader = new BufferedReader(decoder);
+                } else {
+                    this.reader = new BufferedReader(new FileReader(path));
+                }
             } catch (FileNotFoundException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                eof = true;
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                eof = true;
+            } catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                 eof = true;
             }
@@ -62,5 +76,22 @@ public class DocumentReader implements Iterable<Document> {
             }
             return (lineBuff != null);
         }
+    }
+
+    public static void main(String args []) {
+        long start = System.currentTimeMillis();
+        int numDocs = 0;
+        for (String path : args) {
+            DocumentReader dr = new DocumentReader(new File(path));
+            System.err.println("reading documents from " + path);
+            for (Document d : dr) {
+                if (numDocs++ % 1000 == 0) {
+                    System.err.println("reading document number " + numDocs);
+                }
+            }
+        }
+        long elapsed = System.currentTimeMillis() - start;
+        System.err.println("elapsed time is " + (elapsed / 1000.0));
+        System.err.println("docs per second is " + (1000 * numDocs / elapsed));
     }
 }

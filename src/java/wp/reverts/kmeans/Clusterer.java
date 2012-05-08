@@ -1,9 +1,9 @@
 package wp.reverts.kmeans;
 
+import gnu.trove.map.hash.TIntIntHashMap;
+
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Scalable K-Means ++ algorithm
@@ -25,19 +25,23 @@ public class Clusterer {
         double sum = 0.0;
         int i = 0;
         List<Document> initial = new ArrayList<Document>();
+        TIntIntHashMap docIdsToIndexes = new TIntIntHashMap ();
 
         Random rand = new Random();
 
         // pass 1; pick a random document as initial cluster
         for (Document d : reader) {
+            docIdsToIndexes.put(d.getId(), i);
             if (initial.size() < numClusters) {
                 initial.add(d);
             } else if (rand.nextDouble() < 1.0 * numClusters / (i+1)) {
                 initial.set(rand.nextInt(initial.size()), d);
             }
+            i++;
         }
 
         for (Document d : initial) {
+            System.err.println("cluster " + clusters.size() + " intialized to doc #" + docIdsToIndexes.get(d.getId()) + " id=" + d.getId());
             clusters.add(new Cluster(clusters.size(), d));
         }
     }
