@@ -82,7 +82,7 @@ public class Clusterer {
         }
     }
 
-    public ClusterScore findClosest(Document d, boolean working) {
+    public ClusterScore findClosest(final Document d, final boolean working) {
         ClusterScore cs = new ClusterScore();
         for (Cluster c : clusters) {
             double s = c.getSimilarity(d, working);
@@ -94,24 +94,56 @@ public class Clusterer {
         return cs;
     }
 
-    public void iteration() {
-//        int i = 0;
-//        double sum = 0.0;
-//        for (Document d : reader) {
-//            d.getFeatures().normalize();
-//            ClusterScore cs = findClosest(d, false);
-//
-//            // check if we should create a new cluster with this
-//            if (cs.score > 0.0) {
-//                cs.cluster.addDocument(d);
-//            }
-//            sum += cs.score;
-//        }
-//        System.err.println("mean sim is " + (sum / i));
-//
-//        for (Cluster c : clusters) {
-//            c.finalize();
-//        }
+    public class IterationRunnable implements Callable {
+        private DocumentReader reader;
+        private int id;
+
+        public IterationRunnable(int id, DocumentReader reader) {
+            this.id = id;
+            this.reader = reader;
+        }
+
+        public Object call() {
+            double sum = 0.0;
+            int i = 0;
+
+            for (Document d : reader) {
+                d.getFeatures().normalize();
+                ClusterScore cs = findClosest(d, false);
+
+                // check if we should create a new cluster with this
+                if (cs.score > 0.0) {
+                    synchronized (cs.cluster) {
+                        cs.cluster.addDocument(d);
+                    }
+                }
+                sum += cs.score;
+                i++;
+            }
+
+            return new Double(sum);
+        }
+    }
+
+    public void iteration() throws InterruptedException, ExecutionException {
+        double sum = 0;
+        int i = 0;
+        for (DocumentReader r : readers) {
+            completionPool.submit(new IterationRunnable(i++, r));
+        }
+        long start = System.currentTimeMillis();
+        i = 0;
+        for (DocumentReader r : readers) {
+            i++;
+            sum += (Double)(completionPool.take().get());
+            double mean = (System.currentTimeMillis() - start) / 1000.0 / i;
+            System.err.println("mean completion time is " + mean + " seconds");
+        }
+        System.err.println("sum of sims is " + sum);
+
+        for (Cluster c : clusters) {
+            c.finalize();
+        }
     }
 
     public void shutdown() {
@@ -123,7 +155,7 @@ public class Clusterer {
         double score = 0.0;
     }
 
-    public static void main(String args[]) throws InterruptedException {
+    public static void main(String args[]) throws InterruptedException, ExecutionException {
         if (args.length < 3) {
             System.err.println("usage: Clusterer num_clusters num_threads input paths...");
             System.exit(1);
@@ -134,9 +166,9 @@ public class Clusterer {
         }
         Clusterer c = new Clusterer(paths, Integer.valueOf(args[0]), Integer.valueOf(args[1]));
         c.initialPass();
-//        for (int i = 0; i < 10; i++) {
-//            c.iteration();
-//        }
+        for (int i = 0; i < 10; i++) {
+            c.iteration();
+        }
         c.shutdown();
     }
 }
