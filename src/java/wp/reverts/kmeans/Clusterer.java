@@ -4,45 +4,76 @@ import gnu.trove.map.hash.TIntIntHashMap;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * Scalable K-Means ++ algorithm
  */
 public class Clusterer {
-    File inputPath;
-    DocumentReader reader;
-    List<Cluster> clusters = new ArrayList<Cluster>();
+    private final List<DocumentReader> readers = new ArrayList<DocumentReader>();
+    private final List<Cluster> clusters = new ArrayList<Cluster>();
 
-    private int numClusters;
+    private final int numClusters;
+    private final int numThreads;
+    ExecutorService threadPool;
+    ExecutorCompletionService completionPool;
 
-    public Clusterer(File inputPath, int numClusters) {
-        this.inputPath = inputPath;
+    public Clusterer(List<File> inputPaths, int numClusters, int numThreads) {
         this.numClusters = numClusters;
-        reader = new DocumentReader(inputPath);
+        this.numThreads = numThreads;
+        this.threadPool = Executors.newFixedThreadPool(numThreads);
+        this.completionPool = new ExecutorCompletionService(threadPool);
+        for (File path : inputPaths) {
+            readers.add(new DocumentReader(path));
+        }
     }
 
-    public void initialPass() {
-        double sum = 0.0;
-        int i = 0;
-        List<Document> initial = new ArrayList<Document>();
-        TIntIntHashMap docIdsToIndexes = new TIntIntHashMap ();
+    public class InitialRunnable implements Callable {
+        private DocumentReader reader;
+        private int id;
 
-        Random rand = new Random();
-
-        // pass 1; pick a random document as initial cluster
-        for (Document d : reader) {
-            docIdsToIndexes.put(d.getId(), i);
-            if (initial.size() < numClusters) {
-                initial.add(d);
-            } else if (rand.nextDouble() < 1.0 * numClusters / (i+1)) {
-                initial.set(rand.nextInt(initial.size()), d);
-            }
-            i++;
+        public InitialRunnable(int id, DocumentReader reader) {
+            this.id = id;
+            this.reader = reader;
         }
 
-        for (Document d : initial) {
-            System.err.println("cluster " + clusters.size() + " intialized to doc #" + docIdsToIndexes.get(d.getId()) + " id=" + d.getId());
-            clusters.add(new Cluster(clusters.size(), d));
+        public Object call() {
+            double sum = 0.0;
+            int n = numClusters / readers.size();
+            int i = 0;
+            List<Document> initial = new ArrayList<Document>();
+            TIntIntHashMap docIdsToIndexes = new TIntIntHashMap ();
+
+            Random rand = new Random();
+
+            for (Document d : reader) {
+                docIdsToIndexes.put(d.getId(), i);
+                if (initial.size() < n) {
+                    initial.add(d);
+                } else if (rand.nextDouble() < 1.0 * n / (i+1)) {
+                    initial.set(rand.nextInt(initial.size()), d);
+                }
+                i++;
+            }
+
+            synchronized (clusters) {
+                System.err.println("reader " + id + " of " + readers.size() + " finished.");
+                for (Document d : initial) {
+                    clusters.add(new Cluster(clusters.size(), d));
+                }
+            }
+
+            return "finished";
+        }
+    }
+
+    public void initialPass() throws InterruptedException {
+        int i = 0;
+        for (DocumentReader r : readers) {
+            completionPool.submit(new InitialRunnable(i++, r));
+        }
+        for (DocumentReader r : readers) {
+            completionPool.take();
         }
     }
 
@@ -59,23 +90,27 @@ public class Clusterer {
     }
 
     public void iteration() {
-        int i = 0;
-        double sum = 0.0;
-        for (Document d : reader) {
-            d.getFeatures().normalize();
-            ClusterScore cs = findClosest(d, false);
+//        int i = 0;
+//        double sum = 0.0;
+//        for (Document d : reader) {
+//            d.getFeatures().normalize();
+//            ClusterScore cs = findClosest(d, false);
+//
+//            // check if we should create a new cluster with this
+//            if (cs.score > 0.0) {
+//                cs.cluster.addDocument(d);
+//            }
+//            sum += cs.score;
+//        }
+//        System.err.println("mean sim is " + (sum / i));
+//
+//        for (Cluster c : clusters) {
+//            c.finalize();
+//        }
+    }
 
-            // check if we should create a new cluster with this
-            if (cs.score > 0.0) {
-                cs.cluster.addDocument(d);
-            }
-            sum += cs.score;
-        }
-        System.err.println("mean sim is " + (sum / i));
-
-        for (Cluster c : clusters) {
-            c.finalize();
-        }
+    public void shutdown() {
+        threadPool.shutdownNow();
     }
 
     static class ClusterScore {
@@ -83,15 +118,20 @@ public class Clusterer {
         double score = 0.0;
     }
 
-    public static void main(String args[]) {
-        if (args.length != 2) {
-            System.err.println("usage: Clusterer input_path num_clusters");
+    public static void main(String args[]) throws InterruptedException {
+        if (args.length < 3) {
+            System.err.println("usage: Clusterer num_clusters num_threads input paths...");
             System.exit(1);
         }
-        Clusterer c = new Clusterer(new File(args[0]), Integer.valueOf(args[1]));
-        c.initialPass();
-        for (int i = 0; i < 10; i++) {
-            c.iteration();
+        List<File> paths = new ArrayList<File>();
+        for (int i = 2; i < args.length; i++) {
+            paths.add(new File(args[i]));
         }
+        Clusterer c = new Clusterer(paths, Integer.valueOf(args[0]), Integer.valueOf(args[1]));
+        c.initialPass();
+//        for (int i = 0; i < 10; i++) {
+//            c.iteration();
+//        }
+        c.shutdown();
     }
 }
