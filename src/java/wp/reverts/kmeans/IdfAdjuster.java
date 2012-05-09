@@ -19,10 +19,8 @@ public class IdfAdjuster {
 
     public float adjust(int id, float value) {
         if (counts.containsKey(id)) {
-            System.err.println("adjusting by " + Math.log(counts.get(id) + 10));
             return (float) (value / Math.log(counts.get(id) + 10));
         } else {
-            System.err.println("not adjusting " + id);
             return value;
         }
     }
