@@ -61,6 +61,14 @@ public class Cluster {
         workingLength = -1;
     }
 
+    public FeatureList getFeatures() {
+        return features;
+    }
+
+    public void setFeatures(FeatureList features) {
+        this.features = features;
+    }
+
     public double getWorkingLength() {
         if (workingLength < 0) {
             double sum = 0.0;

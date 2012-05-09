@@ -49,7 +49,7 @@ public class ClusterSeeder implements Callable {
         }
         synchronized (current) {
             for (Cluster c : newClusters) {
-                c.finalize();
+//                c.finalize();
                 c.setId(current.size());
                 current.add(c);
             }

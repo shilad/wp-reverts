@@ -9,11 +9,13 @@ public class ClusterIteration implements Callable {
     private DocumentReader reader;
     private int id;
     private List<Cluster> clusters;
+    private ReverseIndex reverseIndex;
 
-    public ClusterIteration(int id, DocumentReader reader, List<Cluster> clusters) {
+    public ClusterIteration(int id, DocumentReader reader, List<Cluster> clusters, ReverseIndex reverseIndex) {
         this.id = id;
         this.reader = reader;
         this.clusters = clusters;
+        this.reverseIndex = reverseIndex;
     }
 
     public Object call() {
@@ -46,11 +48,11 @@ public class ClusterIteration implements Callable {
 
     public ClusterScore findClosest(final Document d) {
         ClusterScore cs = new ClusterScore();
-        for (Cluster c : clusters) {
-            double s = c.getCosineSimilarity(d, false);
-            if (s >= cs.score) {
-                cs.score = s;
-                cs.cluster = c;
+        double sims[] = reverseIndex.cosineSim(d);
+        for (int i = 0; i < clusters.size(); i++) {
+            if (sims[i] > cs.score) {
+                cs.score = sims[i];
+                cs.cluster = clusters.get(i);
             }
         }
         return cs;

@@ -21,6 +21,7 @@ public class Clusterer {
     private final int numThreads;
     ExecutorService threadPool;
     ExecutorCompletionService completionPool;
+    private ReverseIndex reverseIndex = new ReverseIndex(clusters);
     IdfAdjuster idfAdjuster = new IdfAdjuster();
 
     public Clusterer(List<File> inputPaths, int numClusters, int numThreads) throws IOException {
@@ -79,16 +80,17 @@ public class Clusterer {
                 System.err.println("mean completion time for " + i + " of " + readers.size() + " is " + mean + " seconds");
             }
         }
-//        finalizeClusters();
+        finalizeClusters();
     }
 
     public void finalizeClusters() {
         ClusterStats overall = new ClusterStats(0);
+        reverseIndex.finalizeToIndex();
         for (Cluster c : clusters) {
-            c.finalize();
             c.getStats().debug();
             c.debug(namer, 20);
             overall.merge(c.getStats());
+            c.setFeatures(null);
         }
         System.err.println("============OVERALL STATS================");
         overall.debug();
@@ -99,7 +101,7 @@ public class Clusterer {
         double sum = 0;
         int i = 0;
         for (DocumentReader r : readers) {
-            completionPool.submit(new ClusterIteration(i++, r, clusters));
+            completionPool.submit(new ClusterIteration(i++, r, clusters, reverseIndex));
         }
         long start = System.currentTimeMillis();
         i = 0;
