@@ -30,4 +30,9 @@ public class Document {
     public void setCluster(int cluster) {
         this.cluster = cluster;
     }
+
+    public void debug(Namer namer, int n) {
+        System.err.println("top features for document " + namer.getName(id) + "(id " + id + ")");
+        features.showTop(namer, n);
+    }
 }

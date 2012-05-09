@@ -3,6 +3,7 @@ package wp.reverts.kmeans;
 import gnu.trove.map.hash.TIntIntHashMap;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -12,13 +13,15 @@ import java.util.concurrent.*;
 public class Clusterer {
     private final List<DocumentReader> readers = new ArrayList<DocumentReader>();
     private final List<Cluster> clusters = new ArrayList<Cluster>();
+    private final Namer namer;
 
     private final int numClusters;
     private final int numThreads;
     ExecutorService threadPool;
     ExecutorCompletionService completionPool;
 
-    public Clusterer(List<File> inputPaths, int numClusters, int numThreads) {
+    public Clusterer(List<File> inputPaths, int numClusters, int numThreads) throws IOException {
+        this.namer = new Namer("dat/filtered_articles_to_ids.txt");
         this.numClusters = numClusters;
         this.numThreads = numThreads;
         this.threadPool = Executors.newFixedThreadPool(numThreads);
@@ -28,49 +31,18 @@ public class Clusterer {
         }
     }
 
-    public class InitialRunnable implements Callable {
-        private DocumentReader reader;
-        private int id;
-
-        public InitialRunnable(int id, DocumentReader reader) {
-            this.id = id;
-            this.reader = reader;
-        }
-
-        public Object call() {
-            int n = numClusters / readers.size();
-            if (id < numClusters % readers.size()) {
-                n++;    // leftovers
-            }
-            List<Cluster> newClusters = new ArrayList<Cluster>();
-
-            Random rand = new Random();
-
-            for (Document d : reader) {
-                if (newClusters.size() < n) {
-                    newClusters.add(new Cluster(clusters.size(), d));
-                } else {
-                    newClusters.get(rand.nextInt(n)).addDocument(d, 1.0);
-                }
-            }
-
-            synchronized (clusters) {
-                for (Cluster c : newClusters) {
-                    c.finalize();
-                    c.setId(clusters.size());
-                    clusters.add(c);
-                }
-            }
-
-            return "finished";
-        }
-    }
-
     public void initialPass() throws InterruptedException {
+        System.err.println("here 1");
         int i = 0;
         for (DocumentReader r : readers) {
-            completionPool.submit(new InitialRunnable(i++, r));
+            int n = numClusters / readers.size();
+            if (i< numClusters % readers.size()) {
+                n++;    // leftovers
+            }
+            ClusterSeeder s = new ClusterSeeder(i, r, clusters, n, numClusters);
+            completionPool.submit(s);
         }
+        System.err.println("here 2");
         long start = System.currentTimeMillis();
         i = 0;
         for (DocumentReader r : readers) {
@@ -81,49 +53,8 @@ public class Clusterer {
                 System.err.println("mean completion time for " + i + " of " + readers.size() + " is " + mean + " seconds");
             }
         }
+        System.err.println("here 3");
 //        finalizeClusters();
-    }
-
-    public ClusterScore findClosest(final Document d) {
-        ClusterScore cs = new ClusterScore();
-        for (Cluster c : clusters) {
-            double s = c.getSimilarity(d);
-            if (s >= cs.score) {
-                cs.score = s;
-                cs.cluster = c;
-            }
-        }
-        return cs;
-    }
-
-    public class IterationRunnable implements Callable {
-        private DocumentReader reader;
-        private int id;
-
-        public IterationRunnable(int id, DocumentReader reader) {
-            this.id = id;
-            this.reader = reader;
-        }
-
-        public Object call() {
-            double sum = 0.0;
-            int i = 0;
-
-            for (Document d : reader) {
-                ClusterScore cs = findClosest(d);
-
-                // check if we should create a new cluster with this
-                if (cs.score > 0.0) {
-                    synchronized (cs.cluster) {
-                        cs.cluster.addDocument(d, cs.score);
-                    }
-                }
-                sum += cs.score;
-                i++;
-            }
-
-            return new Double(sum);
-        }
     }
 
     public void finalizeClusters() {
@@ -131,6 +62,7 @@ public class Clusterer {
         for (Cluster c : clusters) {
             c.finalize();
             c.getStats().debug();
+            c.debug(namer, 20);
             overall.merge(c.getStats());
         }
         System.err.println("============OVERALL STATS================");
@@ -142,7 +74,7 @@ public class Clusterer {
         double sum = 0;
         int i = 0;
         for (DocumentReader r : readers) {
-            completionPool.submit(new IterationRunnable(i++, r));
+            completionPool.submit(new ClusterIteration(i++, r, clusters));
         }
         long start = System.currentTimeMillis();
         i = 0;
@@ -161,12 +93,7 @@ public class Clusterer {
         threadPool.shutdownNow();
     }
 
-    static class ClusterScore {
-        Cluster cluster = null;
-        double score = 0.0;
-    }
-
-    public static void main(String args[]) throws InterruptedException, ExecutionException {
+    public static void main(String args[]) throws InterruptedException, ExecutionException, IOException {
         if (args.length < 3) {
             System.err.println("usage: Clusterer num_clusters num_threads input paths...");
             System.exit(1);

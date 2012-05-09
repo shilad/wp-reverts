@@ -4,7 +4,6 @@ package wp.reverts.kmeans;
 import gnu.trove.list.array.TFloatArrayList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.hash.TIntFloatHashMap;
-import gnu.trove.map.hash.TIntShortHashMap;
 
 import java.util.Arrays;
 
@@ -15,15 +14,17 @@ public class Cluster {
 
     TIntFloatHashMap sums = new TIntFloatHashMap();
     TIntArrayList docIds = new TIntArrayList();
+
+    private double workingLength = -1;
     private int id;
     private ClusterStats stats = null;
     private ClusterStats nextStats;
+    private int numFake = NUM_FAKE_DOCUMENTS;
 
     public Cluster(int id, Document d) {
         this.id = id;
         this.nextStats = new ClusterStats(this.id, sums.keySet());
         this.addDocument(d, 1.0);
-        this.finalize();
     }
 
     public void addDocument(Document d, double sim) {
@@ -35,6 +36,7 @@ public class Cluster {
             sums.adjustOrPutValue(featureId, featureValue, featureValue);
         }
         nextStats.addDocument(d, sim);
+        workingLength = -1;
     }
 
     public void finalize() {
@@ -43,7 +45,12 @@ public class Cluster {
         float values [] = new float [ids.length];
         for (int i = 0; i < ids.length; i++) {
             int id = ids[i];
-            values[i] = sums.get(id) / (docIds.size() + NUM_FAKE_DOCUMENTS);
+//            System.err.print("mean with " + docIds.size() + " from " + (sums.get(id) / docIds.size()) + " to ");
+            values[i] = sums.get(id) / (docIds.size() + numFake);
+//            System.err.println("" + values[i]);
+            if (Float.isNaN(values[i])) {
+                throw new IllegalStateException("in cluster " + id + " found NaN for id " + ids[i]);
+            }
         }
         this.features = new FeatureList(ids, values);
 //        this.features.normalize();
@@ -51,10 +58,43 @@ public class Cluster {
         this.docIds.clear();
         this.stats = nextStats;
         this.nextStats = new ClusterStats(this.id, sums.keySet());
+        workingLength = -1;
     }
 
-    public double getSimilarity(Document d) {
-        return features.dot(d.getFeatures());
+    public double getWorkingLength() {
+        if (workingLength < 0) {
+            double sum = 0.0;
+            for (float v : sums.values()) {
+                sum += v*v;
+            }
+            workingLength = Math.sqrt(sum);
+        }
+        return workingLength;
+    }
+
+    public double getSimilarity(Document d, boolean useWorking) {
+        if (useWorking) {
+            double sum = 0.0;
+            for (int i = 0; i < d.getFeatures().getSize(); i++) {
+                int id = d.getFeatures().getId(i);
+                if (sums.containsKey(id)) {
+                    double val = d.getFeatures().getValue(i);
+                    sum += sums.get(id) / (docIds.size() + numFake);
+                }
+            }
+            return sum;
+        } else {
+            return features.dot(d.getFeatures());
+        }
+    }
+
+    public double getCosineSimilarity(Document d, boolean useWorking) {
+        if (useWorking) {
+            double dot = getSimilarity(d, useWorking);
+            return dot / (d.getFeatures().getLength() * getWorkingLength());
+        } else {
+            return features.cosineSimilarity(d.getFeatures());
+        }
     }
 
     public ClusterStats getStats() {
@@ -67,5 +107,14 @@ public class Cluster {
 
     public void setId(int id) {
         this.id = id;
+    }
+
+    public void setNumFake(int numFake) {
+        this.numFake = numFake;
+    }
+
+    public void debug(Namer namer, int n) {
+        System.err.println("top features for cluster" + id + ":");
+        features.showTop(namer, n);
     }
 }

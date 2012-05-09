@@ -3,13 +3,12 @@ package wp.reverts.kmeans;
 import gnu.trove.list.array.TFloatArrayList;
 import gnu.trove.list.array.TIntArrayList;
 
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public final class FeatureList {
     private int [] ids;
     private float [] values;
+    private double length = -1;
 
     public FeatureList(TIntArrayList ids, TFloatArrayList values) {
         this.ids = ids.toArray();
@@ -45,6 +44,47 @@ public final class FeatureList {
         for (int i = 0; i < values.length; i++) {
             values[i] /= scale;
         }
+        length = -1;
+    }
+
+    public double getLength() {
+        if (length < 0) {
+            double sum = 0;
+            for (int i = 0; i < values.length; i++) {
+                sum += values[i] * values[i];
+            }
+            length =Math.sqrt(sum);
+        }
+        return length;
+    }
+
+    public void smartNormalize() {
+        if (values.length == 0) {
+            return;
+        }
+        double sum = 0;
+        for (int i = 0; i < values.length; i++) {
+            sum += values[i];
+        }
+        double mean = sum / values.length;
+        double dev = 0.0;
+        for (int i = 0; i < values.length; i++) {
+            dev += (values[i] - mean) * (values[i] - mean);
+        }
+        dev = Math.sqrt(dev / values.length);
+        double min = 0.0;
+        for (int i = 0; i < values.length; i++) {
+            values[i] = (float) ((values[i] - mean) / dev);
+            min = Math.min(min, values[i]);
+        }
+        // Have all the values start at 0.5 (penalize non-entries).
+        for (int i = 0; i < values.length; i++) {
+            values[i] = (float) (values[i] - min + 5.0);
+            if (Float.isNaN(values[i])) {
+                throw new IllegalStateException("in featurelist found NaN for id " + ids[i]);
+            }
+        }
+        length = -1;
     }
 
     public double dot(FeatureList rhs) {
@@ -52,17 +92,24 @@ public final class FeatureList {
         int j = 0;
         double sum = 0;
         while (i < ids.length && j < rhs.ids.length) {
-            if (ids[i] < ids[j]) {
+            if (ids[i] < rhs.ids[j]) {
                 i++;
-            } else if (ids[i] > ids[j]) {
+            } else if (ids[i] > rhs.ids[j]) {
                 j++;
             } else {
-                sum += ids[i] + ids[j];
+                sum += values[i] + rhs.values[j];
                 i++;
                 j++;
             }
         }
         return sum;
+    }
+
+    public double cosineSimilarity(FeatureList rhs) {
+        if (rhs.getLength() == 0 || this.getLength() == 0) {
+            return 0.0;
+        }
+        return dot(rhs) / (getLength() * rhs.getLength());
     }
 
     /**
@@ -83,5 +130,28 @@ public final class FeatureList {
             values.add(value);
         }
         return new FeatureList(ids, values);
+    }
+
+    public void showTop(Namer namer, int n) {
+        List<Integer> indexes = new ArrayList<Integer>();
+        for (int i = 0; i < ids.length; i++) {
+            indexes.add(i);
+        }
+        Collections.sort(indexes, new Comparator<Integer>() {
+            public int compare(Integer i, Integer j) {
+                if (values[i] < values[j]) {
+                    return +1;
+                } else if (values[i] > values[j]) {
+                    return -1;
+                } else {
+                    return 0;
+                }
+            }
+        });
+        for (int i = 0; i < n && i < indexes.size(); i++) {
+            int id = ids[indexes.get(i)];
+            double v = values[indexes.get(i)];
+            System.err.println("\t" + (i+1) + ". " + namer.getName(id) + " (" + v + ")");
+        }
     }
 }
