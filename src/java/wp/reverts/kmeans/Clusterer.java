@@ -134,12 +134,12 @@ public class Clusterer {
     }
 
     public static void main(String args[]) throws InterruptedException, ExecutionException, IOException {
-        if (args.length < 3) {
-            System.err.println("usage: Clusterer num_clusters num_threads input paths...");
+        if (args.length < 4) {
+            System.err.println("usage: Clusterer num_clusters num_threads output_path input paths...");
             System.exit(1);
         }
         List<File> paths = new ArrayList<File>();
-        for (int i = 2; i < args.length; i++) {
+        for (int i = 3; i < args.length; i++) {
             paths.add(new File(args[i]));
         }
         Clusterer c = new Clusterer(paths, Integer.valueOf(args[0]), Integer.valueOf(args[1]));
@@ -150,7 +150,7 @@ public class Clusterer {
             c.iteration(true);
         }
         c.iteration(false);
-        c.writeClusters(new File("articles/clusters.txt"));
+        c.writeClusters(new File(args[2]));
         c.shutdown();
     }
 }
