@@ -87,8 +87,8 @@ public class Clusterer {
         ClusterStats overall = new ClusterStats(0);
         reverseIndex.finalizeToIndex();
         for (Cluster c : clusters) {
-            c.getStats().debug();
-            c.debug(namer, 20);
+//            c.getStats().debug();
+//            c.debug(namer, 20);
             overall.merge(c.getStats());
             c.setFeatures(null);
         }
