@@ -31,6 +31,14 @@ public final class FeatureList {
         return ids[i];
     }
 
+    public void truncate(int n) {
+        if (ids.length > n) {
+            ids = Arrays.copyOf(ids, n);
+            values = Arrays.copyOf(values, n);
+            length = -1;
+        }
+    }
+
     public float getValue(int i) {
         return values[i];
     }
