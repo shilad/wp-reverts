@@ -32,7 +32,6 @@ public class Clusterer {
     }
 
     public void initialPass() throws InterruptedException {
-        System.err.println("here 1");
         int i = 0;
         for (DocumentReader r : readers) {
             int n = numClusters / readers.size();
@@ -42,18 +41,16 @@ public class Clusterer {
             ClusterSeeder s = new ClusterSeeder(i, r, clusters, n, numClusters);
             completionPool.submit(s);
         }
-        System.err.println("here 2");
         long start = System.currentTimeMillis();
         i = 0;
         for (DocumentReader r : readers) {
             i++;
             completionPool.take();
-            if (i % 100 == 0 || i == readers.size()) {
+            if (i % 10 == 0 || i == readers.size()) {
                 double mean = (System.currentTimeMillis() - start) / 1000.0 / i;
                 System.err.println("mean completion time for " + i + " of " + readers.size() + " is " + mean + " seconds");
             }
         }
-        System.err.println("here 3");
 //        finalizeClusters();
     }
 
