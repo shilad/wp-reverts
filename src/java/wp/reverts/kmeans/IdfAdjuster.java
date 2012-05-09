@@ -9,10 +9,17 @@ public class IdfAdjuster {
     }
 
     public void readDocs(DocumentReader reader) {
+        TIntIntHashMap tmpCounts = new TIntIntHashMap();
         for (Document d: reader) {
             for (int i = 0; i < d.getFeatures().getSize(); i++) {
                 int id = d.getFeatures().getId(i);
-                counts.adjustOrPutValue(id, 1, 1);
+                tmpCounts.adjustOrPutValue(id, 1, 1);
+            }
+        }
+        synchronized (counts) {
+            for (int id : tmpCounts.keys()) {
+                int n = tmpCounts.get(id);
+                counts.adjustOrPutValue(id, n, n);
             }
         }
     }

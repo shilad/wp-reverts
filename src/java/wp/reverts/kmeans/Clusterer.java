@@ -37,10 +37,25 @@ public class Clusterer {
         }
     }
 
-    public void calculateIdf() {
+    public void calculateIdf() throws InterruptedException {
         System.err.println("calculating idf...");
-        for (DocumentReader reader : readers) {
-            idfAdjuster.readDocs(reader);
+        for (final DocumentReader reader : readers) {
+            completionPool.submit(new Callable() {
+                public Object call() throws Exception {
+                    idfAdjuster.readDocs(reader);
+                    return "foo";
+                }
+            });
+        }
+        long start = System.currentTimeMillis();
+        int i = 0;
+        for (DocumentReader r : readers) {
+            i++;
+            completionPool.take();
+            if (i % 10 == 0 || i == readers.size()) {
+                double mean = (System.currentTimeMillis() - start) / 1000.0 / i;
+                System.err.println("mean completion time for " + i + " of " + readers.size() + " is " + mean + " seconds");
+            }
         }
     }
 
