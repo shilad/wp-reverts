@@ -39,7 +39,6 @@ public class ClusterSeeder implements Callable {
             if (!isUsefulDocument(d)) {
                 continue;
             }
-            d.getFeatures().truncate(200);
             d.getFeatures().smartNormalize();
 //                d.debug(namer, 100);
             if (newClusters.size() < k) {

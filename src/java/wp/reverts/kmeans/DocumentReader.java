@@ -6,6 +6,8 @@ import java.util.zip.GZIPInputStream;
 
 public class DocumentReader implements Iterable<Document> {
     File path;
+    int truncationLength = Integer.MAX_VALUE;
+    private IdfAdjuster idfAdjuster;
 
     public DocumentReader(File path) {
         this.path = path;
@@ -13,6 +15,14 @@ public class DocumentReader implements Iterable<Document> {
 
     public Iterator<Document> iterator() {
         return new MyIterator(path);
+    }
+
+    public void setTruncation(int n) {
+        truncationLength = n;
+    }
+
+    public void setIdfAdjuster(IdfAdjuster idfAdjuster) {
+        this.idfAdjuster = idfAdjuster;
     }
 
     public class MyIterator implements Iterator<Document>{
@@ -51,6 +61,8 @@ public class DocumentReader implements Iterable<Document> {
         public Document next() {
             if (!fillBuff()) return null;
             Document d = new Document(lineBuff);
+            d.getFeatures().truncate(truncationLength);
+            if (idfAdjuster != null) d.getFeatures().adjust(idfAdjuster);
             lineBuff = null;
             if (lineNum % 10000 == 0) {
                 System.err.println("reading line " + lineNum + " of " + path);

@@ -113,6 +113,12 @@ public final class FeatureList {
         return sum;
     }
 
+    public void adjust(IdfAdjuster adjuster) {
+        for (int i = 0; i < ids.length; i++) {
+            values[i] = adjuster.adjust(ids[i], values[i]);
+        }
+    }
+
     public double cosineSimilarity(FeatureList rhs) {
         if (rhs.getLength() == 0 || this.getLength() == 0) {
             return 0.0;
