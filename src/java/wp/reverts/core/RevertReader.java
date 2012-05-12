@@ -69,7 +69,7 @@ public class RevertReader implements Iterable<Revert> {
             if (!saveRevertedComment) r.setRevertedComment(null);
             if (!saveRevertingComment) r.setRevertingComment(null);
             lineBuff = null;
-            if (lineNum % 10000 == 0) {
+            if (lineNum % 100000 == 0) {
                 System.err.println("reading line " + lineNum + " of " + path);
             }
             return r;
