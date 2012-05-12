@@ -10,7 +10,7 @@ public class RevertParser {
     }
 
     NameAndId parseNameAndId(String s) {
-        String tokens[] = s.split("@");
+        String tokens[] = s.split("@", 2);
         if (tokens.length != 2) {
             throw new RuntimeException("illegal name and id: '" + s + "'");
         }

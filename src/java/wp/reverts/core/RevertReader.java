@@ -6,7 +6,9 @@ import wp.reverts.kmeans.Document;
 import wp.reverts.kmeans.IdfAdjuster;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 public class RevertReader implements Iterable<Revert> {
@@ -98,20 +100,28 @@ public class RevertReader implements Iterable<Revert> {
         }
     }
 
+    public TIntObjectMap<User> getUsers() {
+        return users;
+    }
+
+    public TIntObjectMap<Article> getArticles() {
+        return articles;
+    }
+
     public static void main(String args []) {
         long start = System.currentTimeMillis();
         int numReverts = 0;
-        for (String path : args) {
-            RevertReader rr = new RevertReader(new File(path));
-            System.err.println("reading reverts from " + path);
-            for (Revert r : rr) {
-                if (numReverts++ % 1000 == 0) {
-                    System.err.println("reading document number " + numReverts);
-                }
-            }
+        RevertReader rr = new RevertReader(new File(args[0]));
+        System.err.println("reading reverts from " + args[0]);
+        List<Revert> reverts = new ArrayList<Revert>();
+        for (Revert r : rr) {
+            numReverts++;
+            reverts.add(r);
         }
         long elapsed = System.currentTimeMillis() - start;
         System.err.println("elapsed time is " + (elapsed / 1000.0));
         System.err.println("docs per second is " + (1000 * numReverts / elapsed));
+        System.err.println("number of users is " + rr.getUsers().size());
+        System.err.println("number of articles is " + rr.getArticles().size());
     }
 }
