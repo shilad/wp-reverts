@@ -37,6 +37,10 @@ public class Basic {
             int i = p * sizes.size() / 100;
             System.out.println("\tpercentile " + p + ": " + sizes.get(i));
         }
+        System.err.println("largest components:");
+        for (int i = 0; i < 50; i++) {
+            System.out.println("\tcomponent #" + (i+1) + ": " + sizes.get(sizes.size() - i - 1));
+        }
     }
 
     public static void main(String args[]) {
@@ -46,6 +50,7 @@ public class Basic {
         RevertGraph g = new RevertGraph();
         g.build(rr);
         Basic b = new Basic(rr, g);
+        b.counts();
         b.analyzeComponents();
         long elapsed = System.currentTimeMillis() - start;
         System.err.println("elapsed time is " + (elapsed / 1000.0));
