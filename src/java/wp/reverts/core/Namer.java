@@ -1,4 +1,4 @@
-package wp.reverts.kmeans;
+package wp.reverts.core;
 
 import java.io.BufferedReader;
 import java.io.FileReader;

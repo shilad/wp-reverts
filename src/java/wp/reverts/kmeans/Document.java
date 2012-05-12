@@ -1,5 +1,7 @@
 package wp.reverts.kmeans;
 
+import wp.reverts.core.Namer;
+
 public class Document {
     private FeatureList features;
     private int id;

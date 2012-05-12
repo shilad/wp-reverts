@@ -2,6 +2,7 @@ package wp.reverts.kmeans;
 
 import gnu.trove.list.array.TFloatArrayList;
 import gnu.trove.list.array.TIntArrayList;
+import wp.reverts.core.Namer;
 
 import java.util.*;
 

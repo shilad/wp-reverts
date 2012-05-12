@@ -1,6 +1,6 @@
 package wp.reverts.kmeans;
 
-import gnu.trove.map.hash.TIntIntHashMap;
+import wp.reverts.core.Namer;
 
 import java.io.BufferedWriter;
 import java.io.File;
