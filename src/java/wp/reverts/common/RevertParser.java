@@ -1,4 +1,4 @@
-package wp.reverts.core;
+package wp.reverts.common;
 
 import gnu.trove.map.TIntObjectMap;
 

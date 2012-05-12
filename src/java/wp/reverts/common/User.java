@@ -1,4 +1,4 @@
-package wp.reverts.core;
+package wp.reverts.common;
 
 public class User {
     private int id;

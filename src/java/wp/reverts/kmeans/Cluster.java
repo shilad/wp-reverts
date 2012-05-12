@@ -4,7 +4,7 @@ package wp.reverts.kmeans;
 import gnu.trove.list.array.TFloatArrayList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.hash.TIntFloatHashMap;
-import wp.reverts.core.Namer;
+import wp.reverts.common.Namer;
 
 import java.util.Arrays;
 

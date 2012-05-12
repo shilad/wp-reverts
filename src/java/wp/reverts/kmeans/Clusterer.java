@@ -1,6 +1,6 @@
 package wp.reverts.kmeans;
 
-import wp.reverts.core.Namer;
+import wp.reverts.common.Namer;
 
 import java.io.BufferedWriter;
 import java.io.File;

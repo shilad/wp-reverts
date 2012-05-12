@@ -1,4 +1,4 @@
-package wp.reverts.core;
+package wp.reverts.common;
 
 import java.io.BufferedReader;
 import java.io.FileReader;

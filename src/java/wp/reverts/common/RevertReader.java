@@ -1,9 +1,7 @@
-package wp.reverts.core;
+package wp.reverts.common;
 
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-import wp.reverts.kmeans.Document;
-import wp.reverts.kmeans.IdfAdjuster;
 
 import java.io.*;
 import java.util.ArrayList;

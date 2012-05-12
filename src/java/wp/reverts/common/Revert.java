@@ -1,6 +1,5 @@
-package wp.reverts.core;
+package wp.reverts.common;
 
-import gnu.trove.map.TIntObjectMap;
 import org.jgrapht.graph.DefaultEdge;
 
 public class Revert extends DefaultEdge {
