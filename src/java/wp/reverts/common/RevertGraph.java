@@ -55,26 +55,18 @@ public class RevertGraph {
 
         return new RevertGraph(new DirectedMaskSubgraph<User, Revert>(graph, new MaskFunctor<User, Revert>() {
             public boolean isEdgeMasked(Revert edge) {
-                return ((keepers.contains(edge.getRevertedUser().getId()))
-                    &&  (keepers.contains(edge.getRevertingUser().getId())));
+                return ((!keepers.contains(edge.getRevertedUser().getId()))
+                    ||  (!keepers.contains(edge.getRevertingUser().getId())));
             }
 
             public boolean isVertexMasked(User vertex) {
-                return keepers.contains(vertex.getId());
+                return !keepers.contains(vertex.getId());
             }
         }));
     }
 
     private long packInts(int i1, int i2) {
         return (i1<< 16) | (i2 & 0xFFFF);
-    }
-
-    private int unpackInt1(long l) {
-        return (int)(l >>> 16);
-    }
-
-    private int unpackInt2(long l) {
-        return (int) (l & 0XFFFF);
     }
 
     public List<Set<User>> getConnectedComponents() {
