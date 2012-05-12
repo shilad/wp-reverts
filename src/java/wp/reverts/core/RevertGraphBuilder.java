@@ -12,6 +12,11 @@ public class RevertGraphBuilder {
 
     public void build(RevertReader reader) {
         for (Revert r : reader) {
+            for (User u : new User[] { r.getRevertedUser(), r.getRevertingUser()}) {
+                if (!graph.containsVertex(u)) {
+                     graph.addVertex(u);
+                }
+            }
             graph.addEdge(r.getRevertingUser(), r.getRevertedUser(), r);
         }
     }
