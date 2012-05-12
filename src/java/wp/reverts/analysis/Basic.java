@@ -2,6 +2,9 @@ package wp.reverts.analysis;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
+import wp.reverts.common.Revert;
 import wp.reverts.common.RevertGraph;
 import wp.reverts.common.RevertReader;
 import wp.reverts.common.User;
@@ -11,16 +14,23 @@ import java.util.Set;
 
 public class Basic {
     private RevertGraph graph;
-    private RevertReader reader;
 
-    public Basic(RevertReader reader, RevertGraph graph) {
-        this.reader = reader;
+    public Basic(RevertGraph graph) {
         this.graph = graph;
     }
 
     public void counts() {
-        System.out.println("number of users is " + reader.getUsers().size());
-        System.out.println("number of articles is " + reader.getArticles().size());
+        TIntSet users = new TIntHashSet();
+        TIntSet articles = new TIntHashSet();
+
+        for (Revert r: graph.getGraph().edgeSet()) {
+            users.add(r.getRevertedUser().getId());
+            users.add(r.getRevertingUser().getId());
+            articles.add(r.getArticle().getId());
+        }
+
+        System.out.println("number of users is " + users.size());
+        System.out.println("number of articles is " + articles.size());
 
     }
 
@@ -47,9 +57,13 @@ public class Basic {
         long start = System.currentTimeMillis();
         RevertReader rr = new RevertReader(new File(args[0]));
         System.err.println("reading reverts from " + args[0]);
-        RevertGraph g = new RevertGraph();
-        g.build(rr);
-        Basic b = new Basic(rr, g);
+        RevertGraph g = new RevertGraph(rr);
+        System.err.println("statistics on entire graph:");
+        Basic b = new Basic(g);
+        b.counts();
+        b.analyzeComponents();
+        System.err.println("\n\n\nstatistics on graph with edge threshold 2:");
+        b = new Basic(g.maskEdgesUnderWeight(2.01));
         b.counts();
         b.analyzeComponents();
         long elapsed = System.currentTimeMillis() - start;
