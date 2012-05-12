@@ -16,8 +16,6 @@ public class RevertReader implements Iterable<Revert> {
     TIntObjectMap<Article> articles = new TIntObjectHashMap<Article>();
 
     private File path;
-    private int truncationLength = Integer.MAX_VALUE;
-    private IdfAdjuster idfAdjuster;
     private boolean saveRevertingComment = true;
     private boolean saveRevertedComment = true;
     private RevertParser parser = new RevertParser();
