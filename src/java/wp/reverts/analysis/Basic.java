@@ -26,6 +26,7 @@ public class Basic {
             articles.add(r.getArticle().getId());
         }
 
+        System.out.println("number of reverts is " + graph.getGraph().edgeSet().size());
         System.out.println("number of users is " + users.size());
         System.out.println("number of articles is " + articles.size());
 
