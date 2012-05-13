@@ -4,10 +4,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
-import wp.reverts.common.Revert;
-import wp.reverts.common.RevertGraph;
-import wp.reverts.common.RevertReader;
-import wp.reverts.common.User;
+import wp.reverts.common.*;
 
 import java.io.File;
 import java.util.Set;
@@ -35,6 +32,7 @@ public class Basic {
     }
 
     public void analyzeComponents() {
+        System.out.println("arboricity is " + new Arboricity().calculate(graph.getGraph()));
         TIntList sizes = new TIntArrayList();
         for (Set<User> component : graph.getConnectedComponents()) {
             sizes.add(component.size());
