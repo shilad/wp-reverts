@@ -52,6 +52,7 @@ class Revert(object):
         return ((not self.rev1.is_anon() and not self.rev2.is_anon())
         and     (not self.is_bot())
         and     (not self.is_vstrict())
+        and     (self.rev1.user_id != self.rev2.user_id)
         and     (not (self.is_fingerprint() and self.is_short())))
 
 class GroupCounts:
@@ -64,6 +65,9 @@ class GroupCounts:
     def count(self, revert):
         if not self.filterfn or self.filterfn(revert):
             self.counts[self.keyfn(revert)] += 1
+
+    def clear(self):
+        self.counts.clear()
 
     def output(self, stream):
         total = sum(self.counts.values())
@@ -93,7 +97,7 @@ class RevertReader:
         
             self.line_num += 1
             if self.show_status and self.line_num % 100000 == 0:
-                warn('reading assessment %d' % self.line_num)
+                warn('reading revert %d' % self.line_num)
 
             if line and line[-1] == '\n':
                 line = line[:-1]
@@ -102,7 +106,7 @@ class RevertReader:
 
             tokens = line.split('\t')
             if len(tokens) != 10:
-                warn('invalid line in quality assessments: %s (error 1)' % line)
+                warn('invalid line in reverts: %s (error 1)' % line)
                 continue
 
             page_id, page_name = tokens[0].split('@', 1)
