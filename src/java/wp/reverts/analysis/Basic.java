@@ -33,10 +33,13 @@ public class Basic {
     }
 
     public void analyzeComponents() {
-        System.out.println("arboricity is " + new Arboricity().calculate(graph.getGraph()));
+        Arboricity a = new Arboricity();
+        System.out.println("overall arboricity is " + a.calculate(graph.getGraph()));
         TIntList sizes = new TIntArrayList();
+        int maxArboricity = -1;
         for (Set<User> component : graph.getConnectedComponents()) {
             sizes.add(component.size());
+            maxArboricity = Math.max(maxArboricity, a.calculate(graph.getGraph()));
         }
         sizes.sort();
         System.out.println("components:");
