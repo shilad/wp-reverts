@@ -22,8 +22,8 @@ public class Builder {
     public void summarizeUserCounts() {
         TIntIntMap counts = new TIntIntHashMap();
         for (Revert r : graph.getGraph().edgeSet()) {
-            counts.increment(r.getRevertedUser().getId());
-            counts.increment(r.getRevertingUser().getId());
+            counts.adjustOrPutValue(r.getRevertedUser().getId(), 1, 1);
+            counts.adjustOrPutValue(r.getRevertingUser().getId(), 1, 1);
         }
         out.println("found " + counts.size() + " users");
         int[] values = counts.values();
@@ -32,8 +32,9 @@ public class Builder {
         for (double p : new double [] { 0.1, 0.5, 1, 2, 5, 10, 20, 30, 40, 50}) {
             double f = p / 100.0;
             int i = (int) ((1.0 - f ) * values.length);
-            out.println("top " + p + "% with rank " + i + " is " + values[i]);
+            out.println("top " + p + "% with rank " + (values.length - i) + " is " + values[i]);
         }
+
         out.println("");
     }
 
@@ -44,6 +45,7 @@ public class Builder {
         RevertGraph g = new RevertGraph(rr);
         System.err.println("statistics on entire graph:");
         Builder b = new Builder(g, System.out);
+        b.summarizeUserCounts();
         long elapsed = System.currentTimeMillis() - start;
         System.err.println("elapsed time is " + (elapsed / 1000.0));
 
