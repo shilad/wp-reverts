@@ -18,7 +18,7 @@ import java.util.*;
 public class Builder {
     private RevertGraph graph;
     private PrintStream out;
-    private int maxArticlesPerUser = 10;
+    private int maxArticlesPerUser = 200;
 
     public Builder(RevertGraph graph, PrintStream out) {
         this.graph = graph;
@@ -39,6 +39,7 @@ public class Builder {
 
         List<TIntList> userArticles = new ArrayList<TIntList>();
         long total = 0;
+        long truncated = 0;
         for (int uid : userCounts.keySet()) {
             TIntIntMap counts = userCounts.get(uid);
             int threshold = 0;
@@ -51,18 +52,28 @@ public class Builder {
             for (int aid : counts.keys()) {
                 if (counts.get(aid) >= threshold) {
                     topArticles.add(aid);
+                    if (topArticles.size() >= maxArticlesPerUser) {
+                        truncated++;
+                        break;
+                    }
                 }
             }
             userArticles.add(topArticles);
             total += topArticles.size() * topArticles.size();
         }
 
+        out.println("truncated " + truncated + " users at " + maxArticlesPerUser);
         out.println("found " + total + " coocurrence pairs");
 
         TLongIntMap adjacencies = new TLongIntHashMap();
+        int i = 0;
         for (TIntList articles : userArticles) {
-            for (int aid : articles.toArray()) {
-                for (int aid2 : articles.toArray()) {
+            if (i++ % 1000 == 0) {
+                out.println("doing user " + i + " of " + userArticles.size());
+            }
+            int [] articleArray = articles.toArray();
+            for (int aid : articleArray) {
+                for (int aid2 : articleArray) {
                     adjacencies.adjustOrPutValue(pack(aid, aid2), 1, 1);
                 }
             }
