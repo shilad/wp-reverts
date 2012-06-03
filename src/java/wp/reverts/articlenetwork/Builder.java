@@ -41,7 +41,7 @@ public class Builder {
 
         for (double p : new double [] { 0.1, 0.5, 1, 2, 5, 10, 20, 30, 40, 50}) {
             double f = p / 100.0;
-            int i = (int) ((1.0 - f ) * counts.size());
+            int i = (int) (f * counts.size());
             int n = counts.get(userIds.get(i));
             out.println("top " + p + "% with rank " + i + " is " + n);
         }
