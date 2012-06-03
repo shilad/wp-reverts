@@ -80,6 +80,39 @@ public class Builder {
         }
 
         out.println("found " + adjacencies.size() + " unique coocurrence pairs");
+
+        out.println("calculating degree distribution...");
+        TIntIntMap degrees = new TIntIntHashMap();
+        for (long pair : adjacencies.keys()) {
+            int a1 = unpackX(pair);
+            int a2 = unpackY(pair);
+            degrees.adjustOrPutValue(a1, 1, 1);
+            degrees.adjustOrPutValue(a2, 1, 1);
+        }
+        TIntIntMap degreeCounts = new TIntIntHashMap();
+        int maxDegree = 0;
+        for (int d : degrees.values()) {
+            int x = degreeCounts.adjustOrPutValue(d, 1, 1);
+            maxDegree = Math.max(x, maxDegree);
+        }
+        for (int d = 1; d <= maxDegree; d++) {
+            if (degreeCounts.containsKey(d)) {
+                out.println("weight " + d + ": " + degreeCounts.get(d) + " edges");
+            }
+        }
+
+        out.println("calculating weights...");
+        TIntIntMap weights = new TIntIntHashMap();
+        int maxWeight = 0;
+        for (int w : adjacencies.values()) {
+            int x = weights.adjustOrPutValue(w, 1, 1);
+            maxWeight = Math.max(x, maxWeight);
+        }
+        for (int w = 1; w <= maxWeight; w++) {
+            if (weights.containsKey(w)) {
+                out.println("weight " + w + ": " + weights.get(w) + " edges");
+            }
+        }
     }
 
     public static long pack(int x, int y) {
