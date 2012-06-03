@@ -1,8 +1,12 @@
 package wp.reverts.articlenetwork;
 
+import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntIntMap;
+import gnu.trove.map.TLongIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.map.hash.TLongIntHashMap;
 import wp.reverts.common.Revert;
 import wp.reverts.common.RevertGraph;
 import wp.reverts.common.RevertReader;
@@ -14,10 +18,71 @@ import java.util.*;
 public class Builder {
     private RevertGraph graph;
     private PrintStream out;
+    private int maxArticlesPerUser = 10;
 
     public Builder(RevertGraph graph, PrintStream out) {
         this.graph = graph;
         this.out = out;
+    }
+
+    public void buildGraph() {
+        Map<Integer, TIntIntMap> userCounts = new HashMap<Integer, TIntIntMap>();
+        for (Revert r : graph.getGraph().edgeSet()) {
+            int aid = r.getArticle().getId();
+            for (int uid : new int[] { r.getRevertedUser().getId(), r.getRevertedUser().getId()}) {
+                if (!userCounts.containsKey(uid)) {
+                    userCounts.put(uid, new TIntIntHashMap());
+                }
+                userCounts.get(uid).adjustOrPutValue(aid, 1, 1);
+            }
+        }
+
+        List<TIntList> userArticles = new ArrayList<TIntList>();
+        long total = 0;
+        for (int uid : userCounts.keySet()) {
+            TIntIntMap counts = userCounts.get(uid);
+            int threshold = 0;
+            if (counts.size() > maxArticlesPerUser) {
+                int [] values = counts.values();
+                Arrays.sort(values);
+                threshold = values[values.length - maxArticlesPerUser];
+            }
+            TIntList topArticles = new TIntArrayList();
+            for (int aid : counts.keys()) {
+                if (counts.get(aid) >= threshold) {
+                    topArticles.add(aid);
+                }
+            }
+            userArticles.add(topArticles);
+            total += topArticles.size() * topArticles.size();
+        }
+
+        out.println("found " + total + " coocurrence pairs");
+
+        TLongIntMap adjacencies = new TLongIntHashMap();
+        for (TIntList articles : userArticles) {
+            for (int aid : articles.toArray()) {
+                for (int aid2 : articles.toArray()) {
+                    adjacencies.adjustOrPutValue(pack(aid, aid2), 1, 1);
+                }
+            }
+        }
+
+        out.println("found " + adjacencies.size() + " unique coocurrence pairs");
+    }
+
+    public static long pack(int x, int y) {
+        long xPacked = ((long)x) << 32;
+        long yPacked = y & 0xFFFFFFFFL;
+        return xPacked | yPacked;
+    }
+
+    public static int unpackX(long packed) {
+        return (int) (packed >> 32);
+    }
+
+    public static int unpackY(long packed) {
+        return (int) (packed & 0xFFFFFFFFL);
     }
 
     public void summarizeUserCounts() {
@@ -62,6 +127,7 @@ public class Builder {
         System.err.println("statistics on entire graph:");
         Builder b = new Builder(g, System.out);
         b.summarizeUserCounts();
+        b.buildGraph();
         long elapsed = System.currentTimeMillis() - start;
         System.err.println("elapsed time is " + (elapsed / 1000.0));
 
