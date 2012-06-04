@@ -1,17 +1,18 @@
 package wp.reverts.articlenetwork;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.map.TIntDoubleMap;
 import gnu.trove.map.TIntIntMap;
+import gnu.trove.map.TLongDoubleMap;
 import gnu.trove.map.TLongIntMap;
-import gnu.trove.map.hash.TIntIntHashMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.map.hash.TLongIntHashMap;
+import gnu.trove.map.hash.*;
+import gnu.trove.procedure.TIntIntProcedure;
+import wp.reverts.common.ArticleClusterReader;
 import wp.reverts.common.Revert;
 import wp.reverts.common.RevertGraph;
 import wp.reverts.common.RevertReader;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
@@ -19,68 +20,54 @@ public class Builder {
     private RevertGraph graph;
     private PrintStream out;
     private int maxArticlesPerUser = 200;
+    private TIntIntMap articleClusters;
 
-    public Builder(RevertGraph graph, PrintStream out) {
+    public Builder(RevertGraph graph, PrintStream out, TIntIntMap articleClusters) {
         this.graph = graph;
         this.out = out;
+        this.articleClusters = articleClusters;
     }
 
-    public void buildGraph() {
-        Map<Integer, TIntIntMap> userCounts = new HashMap<Integer, TIntIntMap>();
+    public Map<Integer, TIntIntMap> getUserArticleCounts(boolean truncate) {
+        Map<Integer, TIntIntMap> counts = new HashMap<Integer, TIntIntMap>();
         for (Revert r : graph.getGraph().edgeSet()) {
             int aid = r.getArticle().getId();
             for (int uid : new int[] { r.getRevertedUser().getId(), r.getRevertedUser().getId()}) {
-                if (!userCounts.containsKey(uid)) {
-                    userCounts.put(uid, new TIntIntHashMap());
+                if (!counts.containsKey(uid)) {
+                    counts.put(uid, new TIntIntHashMap());
                 }
-                userCounts.get(uid).adjustOrPutValue(aid, 1, 1);
+                counts.get(uid).adjustOrPutValue(aid, 1, 1);
             }
         }
+        if (!truncate) {
+            return counts;
+        }
 
-        List<TIntList> userArticles = new ArrayList<TIntList>();
         long total = 0;
         long truncated = 0;
-        for (int uid : userCounts.keySet()) {
-            TIntIntMap counts = userCounts.get(uid);
+        for (int uid : counts.keySet()) {
+            TIntIntMap ucounts = counts.get(uid);
             int threshold = 0;
             if (counts.size() > maxArticlesPerUser) {
-                int [] values = counts.values();
+                int [] values = ucounts.values();
                 Arrays.sort(values);
                 threshold = values[values.length - maxArticlesPerUser];
             }
-            TIntList topArticles = new TIntArrayList();
-            for (int aid : counts.keys()) {
-                if (counts.get(aid) >= threshold) {
-                    topArticles.add(aid);
-                    if (topArticles.size() >= maxArticlesPerUser) {
-                        truncated++;
-                        break;
-                    }
+            final int finalThreshold = threshold;
+            ucounts.retainEntries(new TIntIntProcedure() {
+                public boolean execute(int key, int val) {
+                    return val >= finalThreshold;
                 }
-            }
-            userArticles.add(topArticles);
-            total += topArticles.size() * topArticles.size();
+            });
+            total += ucounts.size() * ucounts.size();
         }
 
         out.println("truncated " + truncated + " users at " + maxArticlesPerUser);
         out.println("found " + total + " coocurrence pairs");
+        return counts;
+    }
 
-        TLongIntMap adjacencies = new TLongIntHashMap();
-        int i = 0;
-        for (TIntList articles : userArticles) {
-            if (i++ % 1000 == 0) {
-                out.println("doing user " + i + " of " + userArticles.size());
-            }
-            int [] articleArray = articles.toArray();
-            for (int aid : articleArray) {
-                for (int aid2 : articleArray) {
-                    adjacencies.adjustOrPutValue(pack(aid, aid2), 1, 1);
-                }
-            }
-        }
-
-        out.println("found " + adjacencies.size() + " unique coocurrence pairs");
-
+    public void exploreDegrees(TLongIntMap adjacencies) {
         out.println("calculating degree distribution...");
         TIntIntMap degrees = new TIntIntHashMap();
         for (long pair : adjacencies.keys()) {
@@ -97,10 +84,42 @@ public class Builder {
         }
         for (int d = 1; d <= maxDegree; d++) {
             if (degreeCounts.containsKey(d)) {
-                out.println("weight " + d + ": " + degreeCounts.get(d) + " edges");
+                out.println("degree " + d + ": " + degreeCounts.get(d) + " edges");
+            }
+        }
+    }
+
+    public void summarizeGraph() {
+        Map<Integer, TIntIntMap> userArticleCounts = getUserArticleCounts(true);
+        TLongIntMap adjacencies = buildArticleAdjacencies(userArticleCounts);
+        exploreDegrees(adjacencies);
+        exploreWeights(adjacencies);
+        double q = modularity(adjacencies);
+        out.println("modularity is " + q);
+    }
+
+    private TLongIntMap buildArticleAdjacencies(Map<Integer, TIntIntMap> userArticleCounts) {
+        TLongIntMap adjacencies = new TLongIntHashMap();
+        int i = 0;
+        for (TIntIntMap articles : userArticleCounts.values()) {
+            if (i++ % 1000 == 0) {
+                out.println("doing user " + i + " of " + userArticleCounts.size());
+            }
+            int [] articleArray = articles.values();
+            for (int aid : articleArray) {
+                int n1 = articles.get(aid);
+                for (int aid2 : articleArray) {
+                    int n2 = articles.get(aid2);
+                    adjacencies.adjustOrPutValue(pack(aid, aid2), 1, 1);
+                }
             }
         }
 
+        out.println("found " + adjacencies.size() + " unique coocurrence pairs");
+        return adjacencies;
+    }
+
+    private void exploreWeights(TLongIntMap adjacencies) {
         out.println("calculating weights...");
         TIntIntMap weights = new TIntIntHashMap();
         int maxWeight = 0;
@@ -113,6 +132,42 @@ public class Builder {
                 out.println("weight " + w + ": " + weights.get(w) + " edges");
             }
         }
+    }
+
+    public double modularity(TLongIntMap adjacencies) {
+        double totalWeight = 0;
+        for (int v : adjacencies.values()) {
+            totalWeight += v;
+        }
+
+        int missing = 0;
+        TIntDoubleMap clusterWeightSums = new TIntDoubleHashMap();
+        TLongDoubleMap clusterSelfWeights = new TLongDoubleHashMap();
+        for (long packed : adjacencies.keys()) {
+            int aid1 = unpackX(packed);
+            int aid2 = unpackY(packed);
+            int w = adjacencies.get(packed);
+            if (articleClusters.containsKey(aid1) && articleClusters.containsKey(aid2)) {
+                int cid1 = articleClusters.get(aid1);
+                int cid2 = articleClusters.get(aid2);
+                clusterWeightSums.adjustOrPutValue(cid1, w, w);
+                clusterWeightSums.adjustOrPutValue(cid2, w, w);
+                if (cid1 == cid2) {
+                    clusterSelfWeights.adjustOrPutValue(cid1, w, w);
+                }
+            } else {
+                missing++;
+            }
+        }
+
+        double Q = 0.0;
+        for (int c : clusterWeightSums.keys()) {
+            double sumWeights = clusterWeightSums.get(c);
+            double selfWeight = clusterSelfWeights.containsKey(c) ? clusterSelfWeights.get(c) : 0.0;
+            Q += selfWeight - sumWeights * sumWeights;
+        }
+
+        return Q;
     }
 
     public static long pack(int x, int y) {
@@ -163,15 +218,16 @@ public class Builder {
         }
     }
 
-    public static void main(String args[]) {
+    public static void main(String args[]) throws IOException {
         long start = System.currentTimeMillis();
         RevertReader rr = new RevertReader(new File(args[0]));
         System.err.println("reading reverts from " + args[0]);
         RevertGraph g = new RevertGraph(rr);
         System.err.println("statistics on entire graph:");
-        Builder b = new Builder(g, System.out);
+        TIntIntMap articleClusters = new ArticleClusterReader().read(new File(args[1]));
+        Builder b = new Builder(g, System.out, articleClusters);
         b.summarizeUserCounts();
-        b.buildGraph();
+        b.summarizeGraph();
         long elapsed = System.currentTimeMillis() - start;
         System.err.println("elapsed time is " + (elapsed / 1000.0));
 
